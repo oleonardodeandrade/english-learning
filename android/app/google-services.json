@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "154722726715",
+    "project_id": "english-learning-c302d",
+    "storage_bucket": "english-learning-c302d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:154722726715:android:de1231a39b68914039fd1e",
+        "android_client_info": {
+          "package_name": "com.leonardodev18.englishlearning"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzqSVY7bkBVX5H3muOAnj_nEFrz_o6DLU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
