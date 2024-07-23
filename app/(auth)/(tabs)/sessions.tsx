@@ -5,7 +5,7 @@ const Sessions: React.FC = () => {
   const sessions = ['Listening', 'Speaking', 'Reading', 'Writing'];
 
   return (
-    <View>
+    <View style={{marginTop: 200}}>
       {sessions.map(session => (
         <View key={session}>
           <Text>{session}</Text>

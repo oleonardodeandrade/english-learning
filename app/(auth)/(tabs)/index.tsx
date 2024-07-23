@@ -33,7 +33,7 @@ const HomeScreen: React.FC = () => {
   };
 
   return (
-    <View>
+    <View style={{marginTop: 200}}>
       <Text>Sessions for today:</Text>
       {sessions.map(session => (
         <Text key={session.id}>{session.name}</Text>

@@ -15,7 +15,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <View>
+    <View style={{marginTop: 200}}>
       <TextInput
         placeholder="Daily Goal"
         keyboardType="numeric"
