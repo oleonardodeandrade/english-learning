@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, Button } from 'react-native';
+import { useRouter } from 'expo-router';
 import useStore from '../../../zustand/store';
 import { firestore, auth } from '../../../firebase/firebaseConfig';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -7,7 +8,9 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 const HomeScreen: React.FC = () => {
   const sessions = useStore(state => state.sessions);
   const setSessions = useStore(state => state.setSessions);
+  const setUser = useStore(state => state.setUser);
   const user = useStore(state => state.user);
+  const router = useRouter();
 
   useEffect(() => {
     if (user) {
@@ -23,13 +26,19 @@ const HomeScreen: React.FC = () => {
     }
   }, [user]);
 
+  const handleLogout = async () => {
+    await auth.signOut();
+    setUser(null);
+    router.replace('/');
+  };
+
   return (
     <View>
       <Text>Sessions for today:</Text>
       {sessions.map(session => (
         <Text key={session.id}>{session.name}</Text>
       ))}
-      <Button title="Log Out" onPress={() => auth.signOut()} />
+      <Button title="Log Out" onPress={handleLogout} />
     </View>
   );
 };
