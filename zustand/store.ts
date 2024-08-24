@@ -1,10 +1,6 @@
-import { create } from 'zustand';
+import { Lesson } from '@/utils/Lesson';
 import { User } from 'firebase/auth';
-
-interface Lesson {
-  id: string;
-  content: string;
-}
+import { create } from 'zustand';
 
 interface Session {
   id: string;

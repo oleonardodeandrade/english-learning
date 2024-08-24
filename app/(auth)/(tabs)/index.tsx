@@ -1,8 +1,9 @@
-import { fetchGPTLessons } from '@/api/gpt';
-import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { evaluateAnswer, generateEnglishLesson, transcribeAudio } from '@/api/gpt';
+import { auth } from '@/firebase/firebaseConfig';
+import { useAudioRecorder } from '@/utils/audio';
+import { fetchLessonsFromFirebase, saveLessonToFirebase } from '@/utils/firebase';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Button, Text, View } from 'react-native';
-import { auth, firestore } from '../../../firebase/firebaseConfig';
+import { Button, ScrollView, Text, TextInput, View } from 'react-native';
 import useStore from '../../../zustand/store';
 
 const HomeScreen: React.FC = () => {
@@ -10,67 +11,107 @@ const HomeScreen: React.FC = () => {
   const lessons = useStore(state => state.lessons);
   const setLessons = useStore(state => state.setLessons);
   const user = useStore(state => state.user);
+  const [transcription, setTranscription] = useState('');
+  const [writingAnswer, setWritingAnswer] = useState('');
+  const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
+
+  const { recording, audioUri, startRecording, stopRecording } = useAudioRecorder();
 
   useEffect(() => {
     if (user) {
-      const fetchLessons = async () => {
-        try {
-          setLoading(true);
-          const lessonList: any[] = [];
-          const q = query(collection(firestore, 'lessons'), where('userId', '==', user.uid));
-          const snapshot = await getDocs(q);
-          
-          console.log('Snapshot received:', snapshot);
-          
-          if (!snapshot.empty) {
-            snapshot.forEach(doc => {
-              console.log('Document data:', doc.data());
-              lessonList.push({ id: doc.id, ...doc.data() });
-            });
-            setLessons(lessonList);
-          } else {
-            console.log('No documents found, fetching new lessons from GPT-3 API');
-            // Fetch new lessons from GPT-3 API
-            const newLesson = await fetchGPTLessons();
-            const newLessonDoc = {
-              userId: user.uid,
-              content: newLesson,
-            };
-            const lessonDocRef = doc(collection(firestore, 'lessons'));
-            await setDoc(lessonDocRef, newLessonDoc);
-            lessonList.push({ id: lessonDocRef.id, ...newLessonDoc });
-            setLessons(lessonList);
-          }
-        } catch (error) {
-          console.error('Error fetching lessons:', error);
-        } finally {
-          setLoading(false);
+      const fetchOrGenerateLessons = async () => {
+        setLoading(true);
+        let lessonList = await fetchLessonsFromFirebase(user.uid);
+
+        if (lessonList.length === 0) {
+          const newLesson = await generateEnglishLesson();
+          await saveLessonToFirebase({ ...newLesson, userId: user.uid });
+          lessonList.push({ ...newLesson, id: newLesson.id });
         }
+
+        setLessons(lessonList);
+        setLoading(false);
       };
 
-      fetchLessons();
+      fetchOrGenerateLessons();
     }
   }, [user]);
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    setLessons([]); // Clear lessons on logout
+  const handleTranscriptionSubmit = async () => {
+    const evaluation = await evaluateAnswer(lessons[0].listening.questions.join(', '), transcription);
+    setEvaluationResult(evaluation);
   };
 
+  const handleWritingSubmit = async () => {
+    const evaluation = await evaluateAnswer(lessons[0].writing.prompt, writingAnswer);
+    setEvaluationResult(evaluation);
+  };
+
+  const handleSpeakingEvaluation = async () => {
+    if (audioUri) {
+      setLoading(true);
+      try {
+        const transcribedText = await transcribeAudio(audioUri);
+        setTranscription(transcribedText);
+      } catch (error) {
+        console.error("Error transcribing audio:", error);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      alert('Please record your voice first');
+    }
+  };
+  
+
+
+  if (loading) {
+    return <Text>Loading...</Text>;
+  }
+
   return (
-    <View style={{marginTop: 200}}>
-      {loading ? (
-        <ActivityIndicator size="large" />
-      ) : (
-        <>
-          <Text>Lessons for today:</Text>
-          {lessons.map(lesson => (
-            <Text key={lesson.id}>{lesson.content}</Text>
-          ))}
-          <Button title="Log Out" onPress={handleLogout} />
-        </>
-      )}
-    </View>
+    <ScrollView>
+      {lessons.map((lesson) => (
+        <View key={lesson.id}>
+          <Text>Date: {lesson.date}</Text>
+          
+          {/* Listening */}
+          <Text>Listening:</Text>
+          <Text>Audio: {lesson.listening.audioUrl}</Text>
+          <Text>Questions: {lesson.listening.questions.join(', ')}</Text>
+          <TextInput 
+            placeholder="Type what you hear..." 
+            value={transcription}
+            onChangeText={setTranscription}
+          />
+          <Button title="Submit Transcription" onPress={handleTranscriptionSubmit} />
+          {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+
+          {/* Reading */}
+          <Text>Reading:</Text>
+          <Text>{lesson.reading.text}</Text>
+          <Text>Explanation: {lesson.reading.explanation}</Text>
+
+          {/* Speaking */}
+          <Text>Speaking:</Text>
+          <Text>{lesson.speaking.topic}</Text>
+          <Button title="Evaluate Speaking" onPress={handleSpeakingEvaluation} />
+          {evaluationResult && <Text>Score: {evaluationResult}/100</Text>}
+
+          {/* Writing */}
+          <Text>Writing:</Text>
+          <Text>{lesson.writing.prompt}</Text>
+          <TextInput 
+            placeholder="Write your text here..." 
+            value={writingAnswer}
+            onChangeText={setWritingAnswer}
+          />
+          <Button title="Submit Writing" onPress={handleWritingSubmit} />
+          {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+        </View>
+      ))}
+      <Button title="Log Out" onPress={() => auth.signOut()} />
+    </ScrollView>
   );
 };
 
