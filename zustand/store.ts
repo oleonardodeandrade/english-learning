@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
 
+interface Lesson {
+  id: string;
+  content: string;
+}
+
 interface Session {
   id: string;
   name: string;
@@ -12,6 +17,8 @@ interface StoreState {
   setUser: (user: User | null) => void;
   sessions: Session[];
   setSessions: (sessions: Session[]) => void;
+  lessons: Lesson[];
+  setLessons: (lessons: Lesson[]) => void;
 }
 
 const useStore = create<StoreState>(set => ({
@@ -19,6 +26,8 @@ const useStore = create<StoreState>(set => ({
   setUser: (user) => set({ user }),
   sessions: [],
   setSessions: (sessions) => set({ sessions }),
+  lessons: [],
+  setLessons: (lessons) => set({ lessons }),
 }));
 
 export default useStore;
