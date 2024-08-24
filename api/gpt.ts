@@ -148,33 +148,43 @@ export const evaluateAnswer = async (
   return data.choices[0].message.content;
 };
 
-export const transcribeAudio = async (
-  audioFileUri: string
-): Promise<string> => {
-  const fileInfo = await FileSystem.getInfoAsync(audioFileUri);
+export const transcribeAudio = async (audioFileUri: string): Promise<string> => {
+  try {
+    const fileInfo = await FileSystem.getInfoAsync(audioFileUri);
 
-  const formData = new FormData();
-  formData.append("file", {
-    uri: fileInfo.uri,
-    name: "audio.mp3",
-    type: "audio/mpeg",
-  } as any);
+    const formData = new FormData();
+    formData.append("file", {
+      uri: fileInfo.uri,
+      name: "audio.m4a",
+      type: "audio/m4a",
+    } as any);
 
-  const response = await fetch(
-    "https://api.openai.com/v1/audio/transcriptions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-      },
-      body: formData,
+    formData.append("model", "whisper-1");
+    formData.append("language", "en");
+
+    const response = await fetch(
+      "https://api.openai.com/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Transcription API Error:', response.status, errorText);
+      throw new Error(`Error transcribing audio: ${response.statusText}`);
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`Error transcribing audio: ${response.statusText}`);
+    const data = await response.json();
+    console.log('Transcription result:', data.text);
+    return data.text;
+  } catch (error) {
+    console.error('Error in transcribeAudio:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.text;
 };
+

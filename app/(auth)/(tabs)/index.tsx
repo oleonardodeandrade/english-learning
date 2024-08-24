@@ -1,6 +1,5 @@
 import { evaluateAnswer, generateEnglishLesson, transcribeAudio } from '@/api/gpt';
 import { auth } from '@/firebase/firebaseConfig';
-import { useAudioRecorder } from '@/utils/audio';
 import { fetchLessonsFromFirebase, saveLessonToFirebase } from '@/utils/firebase';
 import { Audio } from 'expo-av';
 import React, { useEffect, useState } from 'react';
@@ -16,8 +15,7 @@ const HomeScreen: React.FC = () => {
   const [writingAnswer, setWritingAnswer] = useState('');
   const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
-
-  const { recording, audioUri, startRecording, stopRecording } = useAudioRecorder();
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -65,6 +63,63 @@ const HomeScreen: React.FC = () => {
     }
   };
 
+  const startRecording = async () => {
+    try {
+      console.log('Requesting permissions..');
+      await Audio.requestPermissionsAsync();
+
+      console.log('Starting recording..');
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+
+      setRecording(recording);
+      console.log('Recording started');
+    } catch (err) {
+      console.error('Failed to start recording', err);
+    }
+  };
+
+  const stopRecording = async () => {
+    console.log('Stopping recording..');
+    if (recording) {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+      console.log('Recording stopped and stored at', uri);
+      return uri;
+    }
+  };
+
+  const handleSpeakingEvaluation = async () => {
+    try {
+      const audioUri = await stopRecording();
+      if (audioUri) {
+        setLoading(true);
+        console.log('Transcribing audio...');
+        const transcribedText = await transcribeAudio(audioUri);
+        setTranscription(transcribedText);
+        console.log('Transcription result:', transcribedText);
+
+        console.log('Submitting transcription for evaluation...');
+        const evaluation = await evaluateAnswer(lessons[0].speaking.topic, transcribedText);
+        setEvaluationResult(evaluation);
+        console.log('Evaluation result:', evaluation);
+      } else {
+        alert('Please record your voice first');
+      }
+    } catch (error) {
+      console.error('Error in handleSpeakingEvaluation:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleTranscriptionSubmit = async () => {
     try {
       console.log('Submitting transcription for evaluation...');
@@ -84,24 +139,6 @@ const HomeScreen: React.FC = () => {
       console.log('Evaluation result:', evaluation);
     } catch (error) {
       console.error('Error in handleWritingSubmit:', error);
-    }
-  };
-
-  const handleSpeakingEvaluation = async () => {
-    if (audioUri) {
-      try {
-        setLoading(true);
-        console.log('Transcribing audio...');
-        const transcribedText = await transcribeAudio(audioUri);
-        setTranscription(transcribedText);
-        console.log('Transcription result:', transcribedText);
-      } catch (error) {
-        console.error('Error in handleSpeakingEvaluation:', error);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      alert('Please record your voice first');
     }
   };
 
@@ -143,8 +180,9 @@ const HomeScreen: React.FC = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Speaking:</Text>
               <Text>{lesson.speaking.topic}</Text>
-              <Button title="Evaluate Speaking" onPress={handleSpeakingEvaluation} />
-              {evaluationResult && <Text>Score: {evaluationResult}/100</Text>}
+              <Button title="Start Recording" onPress={startRecording} />
+              <Button title="Stop Recording & Evaluate" onPress={handleSpeakingEvaluation} />
+              {evaluationResult && <Text>Score: {evaluationResult}</Text>}
             </View>
 
             {/* Writing */}
