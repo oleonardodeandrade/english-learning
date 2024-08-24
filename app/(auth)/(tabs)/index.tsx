@@ -20,17 +20,25 @@ const HomeScreen: React.FC = () => {
   useEffect(() => {
     if (user) {
       const fetchOrGenerateLessons = async () => {
-        setLoading(true);
-        let lessonList = await fetchLessonsFromFirebase(user.uid);
+        try {
+          setLoading(true);
+          console.log('Fetching lessons from Firebase...');
+          let lessonList = await fetchLessonsFromFirebase(user.uid);
 
-        if (lessonList.length === 0) {
-          const newLesson = await generateEnglishLesson();
-          await saveLessonToFirebase({ ...newLesson, userId: user.uid });
-          lessonList.push({ ...newLesson, id: newLesson.id });
+          if (lessonList.length === 0) {
+            console.log('No lessons found, generating new lessons...');
+            const newLesson = await generateEnglishLesson();
+            console.log('Generated new lesson:', newLesson);
+            await saveLessonToFirebase({ ...newLesson, userId: user.uid });
+            lessonList.push({ ...newLesson, id: newLesson.id });
+          }
+
+          setLessons(lessonList);
+        } catch (error) {
+          console.error('Error in fetchOrGenerateLessons:', error);
+        } finally {
+          setLoading(false);
         }
-
-        setLessons(lessonList);
-        setLoading(false);
       };
 
       fetchOrGenerateLessons();
@@ -38,21 +46,50 @@ const HomeScreen: React.FC = () => {
   }, [user]);
 
   const handleTranscriptionSubmit = async () => {
-    const evaluation = await evaluateAnswer(lessons[0].listening.questions.join(', '), transcription);
-    setEvaluationResult(evaluation);
+    try {
+      console.log('Submitting transcription for evaluation...');
+      const listening = lessons[0].listening;
+      
+      console.log('Listening object:', listening);
+      
+      if (listening && Array.isArray(listening.questions)) {
+        const evaluation = await evaluateAnswer(listening.questions.join(', '), transcription);
+        setEvaluationResult(evaluation);
+        console.log('Evaluation result:', evaluation);
+      } else {
+        console.error('Listening questions are undefined or not an array.');
+        alert('There was an issue with the listening questions. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error in handleTranscriptionSubmit:', error);
+    }
   };
+  
 
   const handleWritingSubmit = async () => {
-    const evaluation = await evaluateAnswer(lessons[0].writing.prompt, writingAnswer);
-    setEvaluationResult(evaluation);
+    try {
+      console.log('Submitting writing for evaluation...');
+      const evaluation = await evaluateAnswer(lessons[0].writing.prompt, writingAnswer);
+      setEvaluationResult(evaluation);
+      console.log('Evaluation result:', evaluation);
+    } catch (error) {
+      console.error('Error in handleWritingSubmit:', error);
+    }
   };
 
   const handleSpeakingEvaluation = async () => {
     if (audioUri) {
-      setLoading(true);
-      const transcribedText = await transcribeAudio(audioUri);
-      setTranscription(transcribedText);
-      setLoading(false);
+      try {
+        setLoading(true);
+        console.log('Transcribing audio...');
+        const transcribedText = await transcribeAudio(audioUri);
+        setTranscription(transcribedText);
+        console.log('Transcription result:', transcribedText);
+      } catch (error) {
+        console.error('Error in handleSpeakingEvaluation:', error);
+      } finally {
+        setLoading(false);
+      }
     } else {
       alert('Please record your voice first');
     }
@@ -63,59 +100,59 @@ const HomeScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={{marginTop: 40}}>
-    <ScrollView contentContainerStyle={styles.container}>
-      {lessons.map((lesson) => (
-        <View key={lesson.id} style={styles.lessonBlock}>
-          <Text style={styles.dateText}>Date: {lesson.date}</Text>
-          
-          {/* Listening */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Listening:</Text>
-            <Text>Audio: {lesson.listening.audioUrl}</Text>
-            <Text>Questions: {lesson.listening.questions.join(', ')}</Text>
-            <TextInput 
-              style={styles.input}
-              placeholder="Type what you hear..." 
-              value={transcription}
-              onChangeText={setTranscription}
-            />
-            <Button title="Submit Transcription" onPress={handleTranscriptionSubmit} />
-            {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
-          </View>
+    <SafeAreaView style={{ marginTop: 40 }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {lessons.map((lesson) => (
+          <View key={lesson.id} style={styles.lessonBlock}>
+            <Text style={styles.dateText}>Date: {lesson.date}</Text>
 
-          {/* Reading */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Reading:</Text>
-            <Text>{lesson.reading.text}</Text>
-            <Text>Explanation: {lesson.reading.explanation}</Text>
-          </View>
+            {/* Listening */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Listening:</Text>
+              <Text>Audio: {lesson.listening.audioUrl}</Text>
+              <Text>Questions: {lesson.listening.questions.join(', ')}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Type what you hear..."
+                value={transcription}
+                onChangeText={setTranscription}
+              />
+              <Button title="Submit Transcription" onPress={handleTranscriptionSubmit} />
+              {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+            </View>
 
-          {/* Speaking */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Speaking:</Text>
-            <Text>{lesson.speaking.topic}</Text>
-            <Button title="Evaluate Speaking" onPress={handleSpeakingEvaluation} />
-            {evaluationResult && <Text>Score: {evaluationResult}/100</Text>}
-          </View>
+            {/* Reading */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Reading:</Text>
+              <Text>{lesson.reading.text}</Text>
+              <Text>Explanation: {lesson.reading.explanation}</Text>
+            </View>
 
-          {/* Writing */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Writing:</Text>
-            <Text>{lesson.writing.prompt}</Text>
-            <TextInput 
-              style={styles.input}
-              placeholder="Write your text here..." 
-              value={writingAnswer}
-              onChangeText={setWritingAnswer}
-            />
-            <Button title="Submit Writing" onPress={handleWritingSubmit} />
-            {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+            {/* Speaking */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Speaking:</Text>
+              <Text>{lesson.speaking.topic}</Text>
+              <Button title="Evaluate Speaking" onPress={handleSpeakingEvaluation} />
+              {evaluationResult && <Text>Score: {evaluationResult}/100</Text>}
+            </View>
+
+            {/* Writing */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Writing:</Text>
+              <Text>{lesson.writing.prompt}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Write your text here..."
+                value={writingAnswer}
+                onChangeText={setWritingAnswer}
+              />
+              <Button title="Submit Writing" onPress={handleWritingSubmit} />
+              {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+            </View>
           </View>
-        </View>
-      ))}
-      <Button title="Log Out" onPress={() => auth.signOut()} />
-    </ScrollView>
+        ))}
+        <Button title="Log Out" onPress={() => auth.signOut()} />
+      </ScrollView>
     </SafeAreaView>
   );
 };

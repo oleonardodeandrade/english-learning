@@ -28,10 +28,9 @@ export const useAudioRecorder = () => {
       });
 
       console.log('Starting recording..');
-      const { recording } = await Audio.Recording.createAsync( Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-
+      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       setRecording(recording);
+      console.log('Recording started');
     } catch (err) {
       console.error('Failed to start recording', err);
     }
@@ -50,7 +49,6 @@ export const useAudioRecorder = () => {
       }
     }
   };
-  
 
   return {
     recording,

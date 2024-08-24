@@ -6,6 +6,7 @@ export interface ListeningLesson {
 export interface ReadingLesson {
   text: string;
   explanation: string;
+  questions: string[];
 }
 
 export interface SpeakingLesson {
