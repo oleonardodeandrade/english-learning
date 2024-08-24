@@ -1,27 +1,42 @@
-import {
-  Lesson,
-  ListeningLesson,
-  ReadingLesson
-} from "@/utils/Lesson";
-import * as FileSystem from 'expo-file-system';
+import { Lesson, ListeningLesson, ReadingLesson } from "@/utils/Lesson";
+import * as FileSystem from "expo-file-system";
 
 const API_KEY = "";
 
+const readingPrompt =
+  "Generate a short reading exercise for an English learner. Include a text in English and an explanation in Portuguese, along with three comprehension questions.";
+const speakingPrompt = "Generate a speaking topic for an English learner.";
+const writingPrompt = "Generate a writing prompt for an English learner.";
+const listeningPrompt = `
+For this listening exercise, please listen to the following audio and answer the questions below.
+
+Audio File: [She tried to persuade him to retire, but he would have none of it.](https://www.mairovergara.com/wp-content/uploads/2024/07/1-She-tried-to-persuade.mp3)
+
+Transcription: "She tried to persuade him to retire, but he would have none of it."
+
+After listening, answer these questions:
+
+1. What did she try to persuade him to do?
+2. How did he respond to her suggestion?
+3. Why do you think he didn't want to retire?
+`;
+
 export const generateEnglishLesson = async (): Promise<Lesson> => {
   try {
-    const listeningPrompt =
-      "Generate a short listening exercise for an English learner. Include a link to an audio file and three comprehension questions.";
-    const readingPrompt =
-      "Generate a short reading exercise for an English learner. Include a text in English and an explanation in Portuguese, along with three comprehension questions.";
-    const speakingPrompt = "Generate a speaking topic for an English learner.";
-    const writingPrompt = "Generate a writing prompt for an English learner.";
+    const listening = {
+      audioUrl:
+        "https://www.mairovergara.com/wp-content/uploads/2024/07/1-She-tried-to-persuade.mp3",
+      questions: [
+        "What did she try to persuade him to do?",
+        "How did he respond to her suggestion?",
+        "Why do you think he didn't want to retire?",
+      ],
+    };
 
-    const listeningContent = await fetchGPTLesson<string>(listeningPrompt);
     const readingContent = await fetchGPTLesson<string>(readingPrompt);
     const speakingContent = await fetchGPTLesson<string>(speakingPrompt);
     const writingContent = await fetchGPTLesson<string>(writingPrompt);
 
-    const listening = parseListeningLessonContent(listeningContent);
     const reading = parseReadingLessonContent(readingContent);
     const speaking = { topic: speakingContent };
     const writing = { prompt: writingContent };
@@ -35,13 +50,13 @@ export const generateEnglishLesson = async (): Promise<Lesson> => {
       writing,
     };
   } catch (error) {
-    console.error('Error generating English lesson:', error);
+    console.error("Error generating English lesson:", error);
     throw error;
   }
 };
 
 const fetchGPTLesson = async <T>(prompt: string): Promise<T> => {
-  console.log('Fetching GPT lesson...');
+  console.log("Fetching GPT lesson...");
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -64,16 +79,18 @@ const fetchGPTLesson = async <T>(prompt: string): Promise<T> => {
 
   const data = await response.json();
   const content = data.choices[0].message.content;
-  
-  console.log('Fetched lesson content:', content);
+
+  console.log("Fetched lesson content:", content);
 
   return content as unknown as T;
 };
 
 const parseListeningLessonContent = (content: string): ListeningLesson => {
-  const lines = content.split('\n');
-  const audioUrl = lines[1].match(/\(([^)]+)\)/)?.[1] || '';
-  const questions = lines.slice(4).map(line => line.trim().replace(/\d+\. /, ''));
+  const lines = content.split("\n");
+  const audioUrl = lines[1].match(/\(([^)]+)\)/)?.[1] || "";
+  const questions = lines
+    .slice(4)
+    .map((line) => line.trim().replace(/\d+\. /, ""));
 
   return {
     audioUrl,
@@ -82,10 +99,12 @@ const parseListeningLessonContent = (content: string): ListeningLesson => {
 };
 
 const parseReadingLessonContent = (content: string): ReadingLesson => {
-  const lines = content.split('\n');
+  const lines = content.split("\n");
   const text = lines[0].replace("Text:", "").trim();
   const explanation = lines[1].replace("Explanation:", "").trim();
-  const questions = lines.slice(3).map(line => line.trim().replace(/\d+\. /, ''));
+  const questions = lines
+    .slice(3)
+    .map((line) => line.trim().replace(/\d+\. /, ""));
 
   return {
     text,
@@ -129,26 +148,28 @@ export const evaluateAnswer = async (
   return data.choices[0].message.content;
 };
 
-export const transcribeAudio = async (audioFileUri: string): Promise<string> => {
+export const transcribeAudio = async (
+  audioFileUri: string
+): Promise<string> => {
   const fileInfo = await FileSystem.getInfoAsync(audioFileUri);
 
-  // Crie um objeto FormData
   const formData = new FormData();
-
-  // Adicione o arquivo de áudio ao FormData
-  formData.append('file', {
+  formData.append("file", {
     uri: fileInfo.uri,
-    name: 'audio.mp3',
-    type: 'audio/mpeg'
+    name: "audio.mp3",
+    type: "audio/mpeg",
   } as any);
 
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${API_KEY}`,
-    },
-    body: formData,
-  });
+  const response = await fetch(
+    "https://api.openai.com/v1/audio/transcriptions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+      },
+      body: formData,
+    }
+  );
 
   if (!response.ok) {
     throw new Error(`Error transcribing audio: ${response.statusText}`);
