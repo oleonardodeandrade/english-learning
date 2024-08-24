@@ -2,6 +2,7 @@ import { evaluateAnswer, generateEnglishLesson, transcribeAudio } from '@/api/gp
 import { auth } from '@/firebase/firebaseConfig';
 import { useAudioRecorder } from '@/utils/audio';
 import { fetchLessonsFromFirebase, saveLessonToFirebase } from '@/utils/firebase';
+import { Audio } from 'expo-av';
 import React, { useEffect, useState } from 'react';
 import { Button, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import useStore from '../../../zustand/store';
@@ -14,6 +15,7 @@ const HomeScreen: React.FC = () => {
   const [transcription, setTranscription] = useState('');
   const [writingAnswer, setWritingAnswer] = useState('');
   const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
 
   const { recording, audioUri, startRecording, stopRecording } = useAudioRecorder();
 
@@ -45,26 +47,34 @@ const HomeScreen: React.FC = () => {
     }
   }, [user]);
 
+  const handlePlaySound = async () => {
+    try {
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: lessons[0]?.listening.audioUrl }
+      );
+      setSound(newSound);
+      await newSound.playAsync();
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  };
+
+  const handleStopSound = async () => {
+    if (sound) {
+      await sound.stopAsync();
+    }
+  };
+
   const handleTranscriptionSubmit = async () => {
     try {
       console.log('Submitting transcription for evaluation...');
-      const listening = lessons[0].listening;
-      
-      console.log('Listening object:', listening);
-      
-      if (listening && Array.isArray(listening.questions)) {
-        const evaluation = await evaluateAnswer(listening.questions.join(', '), transcription);
-        setEvaluationResult(evaluation);
-        console.log('Evaluation result:', evaluation);
-      } else {
-        console.error('Listening questions are undefined or not an array.');
-        alert('There was an issue with the listening questions. Please try again.');
-      }
+      const evaluation = await evaluateAnswer(lessons[0].listening.questions.join(', '), transcription);
+      setEvaluationResult(evaluation);
+      console.log('Evaluation result:', evaluation);
     } catch (error) {
       console.error('Error in handleTranscriptionSubmit:', error);
     }
   };
-  
 
   const handleWritingSubmit = async () => {
     try {
@@ -109,7 +119,8 @@ const HomeScreen: React.FC = () => {
             {/* Listening */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Listening:</Text>
-              <Text>Audio: {lesson.listening.audioUrl}</Text>
+              <Button title="Play Audio" onPress={handlePlaySound} />
+              <Button title="Stop Audio" onPress={handleStopSound} />
               <Text>Questions: {lesson.listening.questions.join(', ')}</Text>
               <TextInput
                 style={styles.input}
