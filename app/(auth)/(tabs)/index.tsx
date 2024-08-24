@@ -3,7 +3,7 @@ import { auth } from '@/firebase/firebaseConfig';
 import { useAudioRecorder } from '@/utils/audio';
 import { fetchLessonsFromFirebase, saveLessonToFirebase } from '@/utils/firebase';
 import React, { useEffect, useState } from 'react';
-import { Button, ScrollView, Text, TextInput, View } from 'react-native';
+import { Button, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import useStore from '../../../zustand/store';
 
 const HomeScreen: React.FC = () => {
@@ -50,69 +50,112 @@ const HomeScreen: React.FC = () => {
   const handleSpeakingEvaluation = async () => {
     if (audioUri) {
       setLoading(true);
-      try {
-        const transcribedText = await transcribeAudio(audioUri);
-        setTranscription(transcribedText);
-      } catch (error) {
-        console.error("Error transcribing audio:", error);
-      } finally {
-        setLoading(false);
-      }
+      const transcribedText = await transcribeAudio(audioUri);
+      setTranscription(transcribedText);
+      setLoading(false);
     } else {
       alert('Please record your voice first');
     }
   };
-  
-
 
   if (loading) {
     return <Text>Loading...</Text>;
   }
 
   return (
-    <ScrollView>
+    <SafeAreaView style={{marginTop: 40}}>
+    <ScrollView contentContainerStyle={styles.container}>
       {lessons.map((lesson) => (
-        <View key={lesson.id}>
-          <Text>Date: {lesson.date}</Text>
+        <View key={lesson.id} style={styles.lessonBlock}>
+          <Text style={styles.dateText}>Date: {lesson.date}</Text>
           
           {/* Listening */}
-          <Text>Listening:</Text>
-          <Text>Audio: {lesson.listening.audioUrl}</Text>
-          <Text>Questions: {lesson.listening.questions.join(', ')}</Text>
-          <TextInput 
-            placeholder="Type what you hear..." 
-            value={transcription}
-            onChangeText={setTranscription}
-          />
-          <Button title="Submit Transcription" onPress={handleTranscriptionSubmit} />
-          {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Listening:</Text>
+            <Text>Audio: {lesson.listening.audioUrl}</Text>
+            <Text>Questions: {lesson.listening.questions.join(', ')}</Text>
+            <TextInput 
+              style={styles.input}
+              placeholder="Type what you hear..." 
+              value={transcription}
+              onChangeText={setTranscription}
+            />
+            <Button title="Submit Transcription" onPress={handleTranscriptionSubmit} />
+            {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+          </View>
 
           {/* Reading */}
-          <Text>Reading:</Text>
-          <Text>{lesson.reading.text}</Text>
-          <Text>Explanation: {lesson.reading.explanation}</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Reading:</Text>
+            <Text>{lesson.reading.text}</Text>
+            <Text>Explanation: {lesson.reading.explanation}</Text>
+          </View>
 
           {/* Speaking */}
-          <Text>Speaking:</Text>
-          <Text>{lesson.speaking.topic}</Text>
-          <Button title="Evaluate Speaking" onPress={handleSpeakingEvaluation} />
-          {evaluationResult && <Text>Score: {evaluationResult}/100</Text>}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Speaking:</Text>
+            <Text>{lesson.speaking.topic}</Text>
+            <Button title="Evaluate Speaking" onPress={handleSpeakingEvaluation} />
+            {evaluationResult && <Text>Score: {evaluationResult}/100</Text>}
+          </View>
 
           {/* Writing */}
-          <Text>Writing:</Text>
-          <Text>{lesson.writing.prompt}</Text>
-          <TextInput 
-            placeholder="Write your text here..." 
-            value={writingAnswer}
-            onChangeText={setWritingAnswer}
-          />
-          <Button title="Submit Writing" onPress={handleWritingSubmit} />
-          {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Writing:</Text>
+            <Text>{lesson.writing.prompt}</Text>
+            <TextInput 
+              style={styles.input}
+              placeholder="Write your text here..." 
+              value={writingAnswer}
+              onChangeText={setWritingAnswer}
+            />
+            <Button title="Submit Writing" onPress={handleWritingSubmit} />
+            {evaluationResult && <Text>Evaluation: {evaluationResult}</Text>}
+          </View>
         </View>
       ))}
       <Button title="Log Out" onPress={() => auth.signOut()} />
     </ScrollView>
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+  },
+  lessonBlock: {
+    marginBottom: 20,
+    backgroundColor: '#f9f9f9',
+    padding: 15,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  section: {
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  input: {
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+});
 
 export default HomeScreen;
